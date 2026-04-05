@@ -1,0 +1,91 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.repository.name }}-backend:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.repository.name }}-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.repository.name }}-frontend:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.repository.name }}-frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy backend
+        run: |
+          curl -s -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
+            -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_BACKEND_ID }}"}}'
+
+      - name: Wait for backend
+        run: sleep 30
+
+      - name: Deploy frontend
+        run: |
+          curl -s -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
+            -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_FRONTEND_ID }}"}}'
