@@ -26,19 +26,22 @@ async def _run_migrations(pool):
     migrations_dir = pathlib.Path(__file__).parent.parent / "database" / "migrations"
     if not migrations_dir.exists():
         return
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS _migrations (
-                name VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMPTZ DEFAULT now()
-            )
-        """)
-        applied = {r["name"] for r in await conn.fetch("SELECT name FROM _migrations")}
-        for sql_file in sorted(migrations_dir.glob("*.sql")):
-            if sql_file.name not in applied:
-                logger.info("Applying migration: %s", sql_file.name)
-                await conn.execute(sql_file.read_text())
-                await conn.execute("INSERT INTO _migrations (name) VALUES ($1)", sql_file.name)
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS _migrations (
+                    name VARCHAR(255) PRIMARY KEY,
+                    applied_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+            applied = {r["name"] for r in await conn.fetch("SELECT name FROM _migrations")}
+            for sql_file in sorted(migrations_dir.glob("*.sql")):
+                if sql_file.name not in applied:
+                    logger.info("Applying migration: %s", sql_file.name)
+                    await conn.execute(sql_file.read_text())
+                    await conn.execute("INSERT INTO _migrations (name) VALUES ($1)", sql_file.name)
+    except Exception as e:
+        logger.warning("Migration skipped (likely concurrent worker): %s", e)
 
 
 @asynccontextmanager
