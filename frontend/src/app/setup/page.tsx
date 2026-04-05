@@ -8,6 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { setTokens } from '@/lib/auth';
+import api, { ApiError } from '@/lib/api';
+
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+}
 
 export default function SetupPage() {
   const router = useRouter();
@@ -30,32 +36,23 @@ export default function SetupPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/auth/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: form.full_name,
-          email: form.email,
-          password: form.password,
-        }),
+      const data = await api.post<TokenResponse>('/api/auth/setup', {
+        full_name: form.full_name,
+        email: form.email,
+        password: form.password,
       });
-
-      if (res.status === 409) {
-        router.push('/login');
-        return;
-      }
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.detail || 'Erreur lors de la création du compte');
-        return;
-      }
-
-      const data = await res.json();
       setTokens(data.accessToken, data.refreshToken);
       router.push('/dashboard');
-    } catch {
-      setError('Impossible de se connecter au serveur');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          router.push('/login');
+          return;
+        }
+        setError(err.message || 'Erreur lors de la création du compte');
+      } else {
+        setError('Impossible de se connecter au serveur');
+      }
     } finally {
       setLoading(false);
     }

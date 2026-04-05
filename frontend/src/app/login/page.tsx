@@ -8,6 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { setTokens } from '@/lib/auth';
+import api, { ApiError } from '@/lib/api';
+
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,31 +28,19 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (res.status === 404 || res.status === 400) {
-        const data = await res.json().catch(() => ({}));
-        // Check if no admin exists
-        if (data.detail?.includes('setup') || res.status === 404) {
+      const data = await api.post<TokenResponse>('/api/auth/login', { email, password });
+      setTokens(data.accessToken, data.refreshToken);
+      router.push('/dashboard');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 404) {
           router.push('/setup');
           return;
         }
-      }
-
-      if (!res.ok) {
         setError('Email ou mot de passe incorrect');
-        return;
+      } else {
+        setError('Impossible de se connecter au serveur');
       }
-
-      const data = await res.json();
-      setTokens(data.accessToken, data.refreshToken);
-      router.push('/dashboard');
-    } catch {
-      setError('Impossible de se connecter au serveur');
     } finally {
       setLoading(false);
     }
