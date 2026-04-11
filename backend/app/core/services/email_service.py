@@ -5,6 +5,7 @@ Adapted from lib/tools/email imap_smtp_client.
 
 import logging
 import smtplib
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -18,14 +19,41 @@ def send_email(
     subject: str,
     body: str,
     html: bool = True,
+    ics_data: bytes | None = None,
 ) -> bool:
     """Send an email via SMTP.
 
     Uses SMTP credentials from settings (env vars).
+    If ics_data is provided, attaches a .ics calendar invitation that triggers
+    Accept/Decline buttons in Gmail, Outlook, and Apple Mail.
     Returns True if sent, False on error.
     """
     try:
-        if html:
+        if ics_data is not None:
+            # Mixed message: HTML body + calendar invitation
+            msg = MIMEMultipart("mixed")
+
+            # Alternative part: HTML + text/calendar (triggers inline Accept/Decline)
+            alt = MIMEMultipart("alternative")
+            if html:
+                alt.attach(MIMEText(body, "html"))
+            else:
+                alt.attach(MIMEText(body, "plain"))
+
+            # Inline calendar part — this is what makes Gmail/Outlook show the buttons
+            cal_part = MIMEText(ics_data.decode("utf-8"), "calendar", "utf-8")
+            cal_part.replace_header("Content-Type", "text/calendar; method=REQUEST; charset=UTF-8")
+            alt.attach(cal_part)
+
+            msg.attach(alt)
+
+            # Also attach as .ics file for clients that don't support inline calendar
+            attachment = MIMEBase("application", "ics")
+            attachment.set_payload(ics_data)
+            attachment.add_header("Content-Disposition", "attachment", filename="invitation.ics")
+            attachment.add_header("Content-Type", "text/calendar; method=REQUEST; charset=UTF-8; name=invitation.ics")
+            msg.attach(attachment)
+        elif html:
             msg = MIMEMultipart("alternative")
             msg.attach(MIMEText(body, "html"))
         else:
@@ -55,8 +83,9 @@ def send_booking_confirmation(
     prospect_name: str,
     calendar_name: str,
     date_str: str,
+    ics_data: bytes | None = None,
 ) -> bool:
-    """Send booking confirmation email to prospect."""
+    """Send booking confirmation email to prospect with optional .ics invitation."""
     subject = f"Confirmation de votre RDV — {calendar_name}"
     body = f"""
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -64,10 +93,11 @@ def send_booking_confirmation(
         <p>Bonjour {prospect_name},</p>
         <p>Votre rendez-vous <strong>{calendar_name}</strong> est confirmé pour le :</p>
         <p style="font-size: 18px; font-weight: bold; color: #4F46E5;">{date_str}</p>
+        <p>L'invitation a été jointe à cet email. Cliquez sur <strong>Accepter</strong> pour l'ajouter à votre agenda.</p>
         <p>À bientôt !</p>
     </div>
     """
-    return send_email(to=to, subject=subject, body=body, html=True)
+    return send_email(to=to, subject=subject, body=body, html=True, ics_data=ics_data)
 
 
 def send_booking_notification_to_admin(

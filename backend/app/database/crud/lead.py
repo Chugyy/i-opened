@@ -9,16 +9,32 @@ from uuid import UUID
 import asyncpg
 
 
-async def create(pool: asyncpg.Pool, calendar_id: UUID, first_name: str, last_name: str, email: str, phone: str, answers: list) -> dict:
+async def create(
+    pool: asyncpg.Pool,
+    calendar_id: UUID,
+    first_name: str,
+    last_name: str,
+    email: str,
+    phone: str,
+    answers: list,
+    source: str | None = None,
+    utm_source: str | None = None,
+    utm_medium: str | None = None,
+    utm_campaign: str | None = None,
+) -> dict:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "INSERT INTO leads (calendar_id, first_name, last_name, email, phone, answers, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'nouveau', now(), now()) RETURNING *",
+            "INSERT INTO leads (calendar_id, first_name, last_name, email, phone, answers, status, source, utm_source, utm_medium, utm_campaign, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'nouveau', $7, $8, $9, $10, now(), now()) RETURNING *",
             calendar_id,
             first_name,
             last_name,
             email,
             phone,
             json.dumps(answers),
+            source,
+            utm_source,
+            utm_medium,
+            utm_campaign,
         )
         return dict(row)
 

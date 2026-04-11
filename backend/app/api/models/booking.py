@@ -114,6 +114,10 @@ class QualifyRequest(BaseSchema):
     email: EmailStr
     phone: str = Field(..., pattern=r"^\+[1-9]\d{7,14}$")
     answers: List[AnswerInput] = Field(default_factory=list)
+    source: Optional[str] = Field(None, max_length=100)
+    utm_source: Optional[str] = Field(None, alias="utmSource", max_length=100)
+    utm_medium: Optional[str] = Field(None, alias="utmMedium", max_length=100)
+    utm_campaign: Optional[str] = Field(None, alias="utmCampaign", max_length=100)
 
 
 class QualifyResponse(BaseSchema):

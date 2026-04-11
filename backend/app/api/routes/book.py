@@ -118,7 +118,17 @@ async def qualify_lead(slug: str, body: QualifyRequest, request: Request):
 
     # Upsert lead
     if existing:
-        lead = await lead_crud.update(pool, lead_id=existing["id"], fields={"answers": json.dumps(answers)})
+        update_fields: dict = {"answers": json.dumps(answers)}
+        # Only update source/UTM if provided (don't overwrite existing tracking)
+        if body.source and not existing.get("source"):
+            update_fields["source"] = body.source
+        if body.utm_source and not existing.get("utm_source"):
+            update_fields["utm_source"] = body.utm_source
+        if body.utm_medium and not existing.get("utm_medium"):
+            update_fields["utm_medium"] = body.utm_medium
+        if body.utm_campaign and not existing.get("utm_campaign"):
+            update_fields["utm_campaign"] = body.utm_campaign
+        lead = await lead_crud.update(pool, lead_id=existing["id"], fields=update_fields)
         is_new = False
     else:
         lead = await lead_crud.create(
@@ -129,6 +139,10 @@ async def qualify_lead(slug: str, body: QualifyRequest, request: Request):
             email=str(body.email),
             phone=body.phone,
             answers=json.dumps(answers),
+            source=body.source,
+            utm_source=body.utm_source,
+            utm_medium=body.utm_medium,
+            utm_campaign=body.utm_campaign,
         )
         is_new = True
 

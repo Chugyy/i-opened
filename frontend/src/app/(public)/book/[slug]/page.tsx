@@ -175,8 +175,15 @@ function SlotsPanel({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function BookingPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function BookingPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = use(params);
+  const sp = use(searchParams);
+  const trackingParams = {
+    source: typeof sp.source === 'string' ? sp.source : undefined,
+    utmSource: typeof sp.utm_source === 'string' ? sp.utm_source : undefined,
+    utmMedium: typeof sp.utm_medium === 'string' ? sp.utm_medium : undefined,
+    utmCampaign: typeof sp.utm_campaign === 'string' ? sp.utm_campaign : undefined,
+  };
 
   const [calendar, setCalendar] = useState<PublicCalendar | null>(null);
   const [loading, setLoading] = useState(true);
@@ -217,7 +224,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       const res = await fetch(`${API}/api/book/${slug}/qualify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...contact, answers: questionAnswers }),
+        body: JSON.stringify({ ...contact, answers: questionAnswers, ...trackingParams }),
       });
       if (!res.ok) { toast.error('Erreur lors de la soumission'); return; }
       const data: QualifyResponse = await res.json();

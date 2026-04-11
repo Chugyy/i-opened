@@ -10,6 +10,7 @@ from uuid import UUID
 
 import asyncpg
 
+from config.config import settings
 from app.core.services.email_service import send_email
 from app.core.services.whatsapp_service import check_whatsapp_exists, send_whatsapp
 from app.core.utils.automation_step import resolve_variables
@@ -83,7 +84,42 @@ async def execute_step(
 
     if channel == "email":
         subject = f"Rappel — votre rendez-vous"
-        success = send_email(to=lead["email"], subject=subject, body=body, html=True)
+
+        # Generate .ics invitation for booking confirmation emails
+        ics_data = None
+        if log.get("trigger") == "booking_confirme":
+            try:
+                from app.core.utils.ical import generate_ics
+                from app.database.crud import booking as booking_crud
+                from app.database.crud import calendar as cal_crud
+                from app.database.crud import user as user_crud
+
+                bookings = await booking_crud.list_by_lead(pool, lead_id=log["lead_id"])
+                if bookings:
+                    bk = bookings[0]
+                    cal = await cal_crud.get(pool, calendar_id=lead.get("calendar_id"))
+                    admin = await user_crud.get_by_id(pool, user_id=cal["user_id"]) if cal else None
+
+                    prospect_name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip()
+                    organizer_email = admin["email"] if admin else settings.smtp_email
+                    organizer_name = admin.get("full_name", "I-Opened") if admin else "I-Opened"
+
+                    ics_data = generate_ics(
+                        booking_id=bk["id"],
+                        starts_at=bk["starts_at"],
+                        ends_at=bk["ends_at"],
+                        summary=f"RDV — {calendar_name}" if calendar_name else "Votre rendez-vous",
+                        organizer_email=organizer_email,
+                        organizer_name=organizer_name,
+                        attendee_email=lead["email"],
+                        attendee_name=prospect_name,
+                        description=f"Rendez-vous {calendar_name} confirmé via I-Opened",
+                    )
+                    subject = f"Confirmation de votre RDV — {calendar_name}"
+            except Exception as e:
+                logger.warning("Failed to generate .ics for log %s: %s", log_id, e)
+
+        success = send_email(to=lead["email"], subject=subject, body=body, html=True, ics_data=ics_data)
         if success:
             await log_crud.update_status(
                 pool, log_id=log_id, status="sent",
