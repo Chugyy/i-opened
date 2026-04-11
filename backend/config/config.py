@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     unipile_api_key: str = Field("", env="UNIPILE_API_KEY")
     unipile_account_id: str = Field("", env="UNIPILE_ACCOUNT_ID")
 
+    telegram_bot_token: str = Field("", env="TELEGRAM_BOT_TOKEN")
+    telegram_chat_id: str = Field("", env="TELEGRAM_CHAT_ID")
+
     class Config:
         env_file_encoding = "utf-8"
 

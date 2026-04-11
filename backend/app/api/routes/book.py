@@ -155,6 +155,22 @@ async def qualify_lead(slug: str, body: QualifyRequest, request: Request):
 
     await lead_crud.update(pool, lead_id=lead_id, fields={"status": new_status})
 
+    # Notify via Telegram on new leads
+    if is_new:
+        import asyncio
+        from app.core.services.telegram_service import notify_new_lead
+        asyncio.create_task(notify_new_lead(
+            first_name=body.first_name,
+            last_name=body.last_name,
+            email=str(body.email),
+            phone=body.phone,
+            source=body.source,
+            utm_medium=body.utm_medium,
+            utm_campaign=body.utm_campaign,
+            calendar_name=calendar.get("name", ""),
+            is_qualified=is_qualified,
+        ))
+
     return QualifyResponse(
         lead_id=str(lead_id),
         status=new_status,
