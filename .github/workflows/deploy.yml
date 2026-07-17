@@ -75,17 +75,25 @@ jobs:
     steps:
       - name: Deploy backend
         run: |
-          curl -s -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
+          curl -fsS -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
             -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
             -H 'Content-Type: application/json' \
-            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_BACKEND_ID }}"}}'
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_BACKEND_ID }}"}}' \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 5 \
+            -w '\nHTTP %{http_code}\n'
 
       - name: Wait for backend
         run: sleep 30
 
       - name: Deploy frontend
         run: |
-          curl -s -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
+          curl -fsS -X POST '${{ secrets.DOKPLOY_URL }}/trpc/application.deploy' \
             -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
             -H 'Content-Type: application/json' \
-            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_FRONTEND_ID }}"}}'
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_FRONTEND_ID }}"}}' \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 5 \
+            -w '\nHTTP %{http_code}\n'
