@@ -31,12 +31,23 @@ async def update(pool: asyncpg.Pool, booking_id: UUID, gcal_event_id: str | None
         return dict(row) if row else None
 
 
-async def list_by_calendar(pool: asyncpg.Pool, calendar_id: UUID, from_dt: datetime | None = None) -> list[dict]:
+async def is_owned_by(pool: asyncpg.Pool, booking_id: UUID | str, user_id: UUID | str) -> bool:
+    """Vrai si le RDV appartient a un calendrier de cet utilisateur."""
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM bookings b JOIN calendars c ON c.id = b.calendar_id WHERE b.id = $1::uuid AND c.user_id = $2::uuid)",
+            str(booking_id),
+            str(user_id),
+        ))
+
+
+async def list_by_calendar(pool: asyncpg.Pool, calendar_id: UUID | None, from_dt: datetime | None = None, user_id: UUID | str | None = None) -> list[dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT * FROM bookings WHERE calendar_id = $1 AND status = 'confirmed' AND ($2::timestamptz IS NULL OR starts_at >= $2) ORDER BY starts_at ASC",
-            calendar_id,
+            "SELECT b.* FROM bookings b JOIN calendars c ON c.id = b.calendar_id WHERE ($1::uuid IS NULL OR b.calendar_id = $1::uuid) AND ($3::uuid IS NULL OR c.user_id = $3::uuid) AND b.status = 'confirmed' AND ($2::timestamptz IS NULL OR b.starts_at >= $2) ORDER BY b.starts_at ASC",
+            str(calendar_id) if calendar_id else None,
             from_dt,
+            str(user_id) if user_id else None,
         )
         return [dict(r) for r in rows]
 
@@ -57,11 +68,12 @@ async def cancel(pool: asyncpg.Pool, booking_id: UUID, reason: str | None = None
         return dict(row) if row else None
 
 
-async def list_upcoming(pool: asyncpg.Pool, calendar_id: UUID | None = None, limit: int = 10) -> list[dict]:
+async def list_upcoming(pool: asyncpg.Pool, calendar_id: UUID | None = None, limit: int = 10, user_id: UUID | str | None = None) -> list[dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT b.*, l.first_name || ' ' || l.last_name AS lead_name, c.name AS calendar_name FROM bookings b JOIN leads l ON l.id = b.lead_id JOIN calendars c ON c.id = b.calendar_id WHERE b.status = 'confirmed' AND b.starts_at > now() AND ($1::uuid IS NULL OR b.calendar_id = $1) ORDER BY b.starts_at ASC LIMIT $2",
+            "SELECT b.*, l.first_name || ' ' || l.last_name AS lead_name, c.name AS calendar_name FROM bookings b JOIN leads l ON l.id = b.lead_id JOIN calendars c ON c.id = b.calendar_id WHERE b.status = 'confirmed' AND b.starts_at > now() AND ($1::uuid IS NULL OR b.calendar_id = $1) AND ($3::uuid IS NULL OR c.user_id = $3::uuid) ORDER BY b.starts_at ASC LIMIT $2",
             calendar_id,
             limit,
+            str(user_id) if user_id else None,
         )
         return [dict(r) for r in rows]

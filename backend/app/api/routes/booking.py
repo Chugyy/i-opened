@@ -78,7 +78,7 @@ async def list_bookings(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use ISO 8601.")
 
-    rows = await booking_crud.list_by_calendar(pool, calendar_id=calendar_id, from_dt=from_dt)
+    rows = await booking_crud.list_by_calendar(pool, calendar_id=calendar_id, from_dt=from_dt, user_id=current_user.id)
 
     # Post-filter by status / date_to (CRUD returns confirmed only by default)
     if status:
@@ -113,7 +113,7 @@ async def list_upcoming_bookings(
     pool=Depends(get_pool),
     current_user=Depends(get_current_user),
 ):
-    rows = await booking_crud.list_upcoming(pool, calendar_id=calendar_id, limit=limit)
+    rows = await booking_crud.list_upcoming(pool, calendar_id=calendar_id, limit=limit, user_id=current_user.id)
     return UpcomingBookingsResponse(
         data=[BookingShortResponse.model_validate(r) for r in rows],
         count=len(rows),
@@ -131,6 +131,8 @@ async def cancel_booking(
     pool=Depends(get_pool),
     current_user=Depends(get_current_user),
 ):
+    if not await booking_crud.is_owned_by(pool, booking_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Booking not found")
     # Fetch the booking to check its current status before updating
     # list_by_lead with lead_id=booking_id is a misuse — use update to peek, then cancel
     # Use cancel directly; it returns None if the row doesn't exist
@@ -173,6 +175,8 @@ async def mark_no_show(
     pool=Depends(get_pool),
     current_user=Depends(get_current_user),
 ):
+    if not await booking_crud.is_owned_by(pool, booking_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Booking not found")
     # Pre-check: fetch current status without mutating
     pre_check = await booking_crud.update(
         pool, booking_id=booking_id, gcal_event_id=None, status=None, cancel_reason=None

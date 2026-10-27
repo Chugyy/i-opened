@@ -1,6 +1,10 @@
 """Auth routes — setup, login, refresh, profile."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+
+from config.config import settings
 
 from app.api.deps import get_current_user, get_pool
 from app.api.models.user import (
@@ -25,7 +29,16 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/setup", response_model=TokenResponse, status_code=201)
-async def setup_admin_endpoint(data: SetupAdminRequest, pool=Depends(get_pool)):
+async def setup_admin_endpoint(
+    data: SetupAdminRequest,
+    pool=Depends(get_pool),
+    x_setup_secret: str | None = Header(default=None),
+):
+    # Secret d'installation (SETUP_SECRET) : s'il est defini, il est exige pour creer l'admin.
+    if settings.setup_secret and not hmac.compare_digest(
+        x_setup_secret or "", settings.setup_secret
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid setup secret")
     try:
         tokens = await setup_admin(
             pool,

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 @pytest.fixture
 def fake_user():
-    return SimpleNamespace(id=uuid.uuid4())
+    return SimpleNamespace(id=OWNER_ID)
 
 
 @pytest.fixture
@@ -40,13 +40,14 @@ async def client(app):
         yield c
 
 
+OWNER_ID = uuid.uuid4()
 CALENDAR_ID = str(uuid.uuid4())
 QUESTION_ID = str(uuid.uuid4())
 RULE_ID = str(uuid.uuid4())
 
 CALENDAR_ROW = {
     "id": uuid.UUID(CALENDAR_ID),
-    "user_id": uuid.uuid4(),
+    "user_id": OWNER_ID,
     "name": "My Calendar",
     "slug": "my-calendar",
     "description": None,
