@@ -57,6 +57,14 @@ def _get_pool(request: Request):
     return request.app.state.pool
 
 
+async def _get_owned_calendar(pool, calendar_id: str, current_user):
+    """Calendrier de l'utilisateur connecte ; None (donc 404) s'il est a un autre."""
+    row = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    if row and str(row["user_id"]) != str(current_user.id):
+        return None
+    return row
+
+
 def _row_to_calendar(row: dict) -> CalendarResponse:
     return CalendarResponse.model_validate(
         {
@@ -225,7 +233,7 @@ async def get_calendar(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    row = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    row = await _get_owned_calendar(pool, calendar_id, current_user)
     if not row:
         raise HTTPException(status_code=404, detail="Calendar not found")
     return _row_to_calendar(row)
@@ -239,7 +247,7 @@ async def update_calendar(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    row = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    row = await _get_owned_calendar(pool, calendar_id, current_user)
     if not row:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -281,7 +289,7 @@ async def delete_calendar(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    row = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    row = await _get_owned_calendar(pool, calendar_id, current_user)
     if not row:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -317,7 +325,7 @@ async def list_availabilities(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -333,7 +341,7 @@ async def upsert_availabilities(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -361,7 +369,7 @@ async def list_questions(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -377,7 +385,7 @@ async def create_question(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -401,7 +409,7 @@ async def reorder_questions(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -422,7 +430,7 @@ async def update_question(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -441,7 +449,7 @@ async def delete_question(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -461,7 +469,7 @@ async def list_rules(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -477,7 +485,7 @@ async def create_rule(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -505,7 +513,7 @@ async def update_rule(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -528,7 +536,7 @@ async def delete_rule(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -552,7 +560,7 @@ async def google_connect(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -592,7 +600,7 @@ async def google_callback(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -636,7 +644,7 @@ async def get_sync_status(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -663,7 +671,7 @@ async def delete_sync(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 
@@ -679,7 +687,7 @@ async def trigger_sync(
     current_user=Depends(get_current_user),
 ):
     pool = _get_pool(request)
-    cal = await calendar_crud.get(pool, calendar_id=uuid.UUID(calendar_id))
+    cal = await _get_owned_calendar(pool, calendar_id, current_user)
     if not cal:
         raise HTTPException(status_code=404, detail="Calendar not found")
 

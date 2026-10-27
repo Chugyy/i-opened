@@ -65,11 +65,15 @@ async def update(pool: asyncpg.Pool, lead_id: UUID, fields: dict) -> dict | None
         return dict(row) if row else None
 
 
-async def list(pool: asyncpg.Pool, calendar_id: UUID | None = None, status: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None, limit: int = 50, offset: int = 0) -> list[dict]:
+async def list(pool: asyncpg.Pool, user_id: UUID | None = None, calendar_id: UUID | None = None, status: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None, limit: int = 50, offset: int = 0) -> list[dict]:
     conditions = ["TRUE"]
     params: list = []
     idx = 1
 
+    if user_id is not None:
+        conditions.append(f"c.user_id = ${idx}")
+        params.append(user_id)
+        idx += 1
     if calendar_id is not None:
         conditions.append(f"l.calendar_id = ${idx}")
         params.append(calendar_id)
@@ -97,14 +101,16 @@ async def list(pool: asyncpg.Pool, calendar_id: UUID | None = None, status: str 
         return [dict(r) for r in rows]
 
 
-async def count_by_status(pool: asyncpg.Pool, calendar_id: UUID | None = None) -> list[dict]:
+async def count_by_status(pool: asyncpg.Pool, calendar_id: UUID | None = None, user_id: UUID | None = None) -> list[dict]:
+    conditions = ["TRUE"]
+    params: list = []
+    if user_id is not None:
+        params.append(user_id)
+        conditions.append(f"c.user_id = ${len(params)}")
     if calendar_id is not None:
-        query = "SELECT status, COUNT(*) as count FROM leads WHERE calendar_id = $1 GROUP BY status"
-        params = [calendar_id]
-    else:
-        query = "SELECT status, COUNT(*) as count FROM leads GROUP BY status"
-        params = []
-
+        params.append(calendar_id)
+        conditions.append(f"l.calendar_id = ${len(params)}")
+    query = f"SELECT l.status, COUNT(*) as count FROM leads l JOIN calendars c ON c.id = l.calendar_id WHERE {' AND '.join(conditions)} GROUP BY l.status"
     async with pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
@@ -115,10 +121,11 @@ async def delete(pool: asyncpg.Pool, lead_id: UUID) -> None:
         await conn.execute("DELETE FROM leads WHERE id = $1", lead_id)
 
 
-async def get_detail(pool: asyncpg.Pool, lead_id: UUID) -> dict | None:
+async def get_detail(pool: asyncpg.Pool, lead_id: UUID, user_id: UUID | None = None) -> dict | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT l.*, c.name AS calendar_name FROM leads l LEFT JOIN calendars c ON c.id = l.calendar_id WHERE l.id = $1",
+            "SELECT l.*, c.name AS calendar_name FROM leads l LEFT JOIN calendars c ON c.id = l.calendar_id WHERE l.id = $1 AND ($2::uuid IS NULL OR c.user_id = $2)",
             lead_id,
+            user_id,
         )
         return dict(row) if row else None

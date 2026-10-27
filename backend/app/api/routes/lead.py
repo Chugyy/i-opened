@@ -27,7 +27,7 @@ async def get_lead_stats(
     current_user=Depends(get_current_user),
     pool=Depends(get_pool),
 ):
-    rows = await lead_crud.count_by_status(pool, calendar_id=calendar_id)
+    rows = await lead_crud.count_by_status(pool, calendar_id=calendar_id, user_id=current_user.id)
     counts = {r["status"]: r["count"] for r in rows}
     return LeadStatsResponse(
         nouveau=counts.get("nouveau", 0),
@@ -51,6 +51,7 @@ async def list_leads(
 ):
     rows = await lead_crud.list(
         pool,
+        user_id=current_user.id,
         calendar_id=calendar_id,
         status=status,
         date_from=date_from,
@@ -83,7 +84,7 @@ async def get_lead(
     from uuid import UUID as _UUID
     lid = _UUID(lead_id)
 
-    row = await lead_crud.get_detail(pool, lead_id=lid)
+    row = await lead_crud.get_detail(pool, lead_id=lid, user_id=current_user.id)
     if not row:
         raise HTTPException(status_code=404, detail="Lead not found")
 
@@ -137,7 +138,7 @@ async def update_lead_status(
     from uuid import UUID as _UUID
     lid = _UUID(lead_id)
 
-    existing = await lead_crud.get_detail(pool, lead_id=lid)
+    existing = await lead_crud.get_detail(pool, lead_id=lid, user_id=current_user.id)
     if not existing:
         raise HTTPException(status_code=404, detail="Lead not found")
 
@@ -158,7 +159,7 @@ async def delete_lead(
     from uuid import UUID as _UUID
     lid = _UUID(lead_id)
 
-    existing = await lead_crud.get_detail(pool, lead_id=lid)
+    existing = await lead_crud.get_detail(pool, lead_id=lid, user_id=current_user.id)
     if not existing:
         raise HTTPException(status_code=404, detail="Lead not found")
 

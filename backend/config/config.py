@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     frontend_url: str = Field("http://localhost:3000", env="FRONTEND_URL")
 
+    setup_secret: str = Field("", env="SETUP_SECRET")
+
     jwt_secret_key: str = Field("change-this", env="JWT_SECRET_KEY")
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     jwt_expiration_hours: int = Field(24, env="JWT_EXPIRATION_HOURS")

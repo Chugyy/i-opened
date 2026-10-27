@@ -1,5 +1,7 @@
 """Endpoint tests for /api/dashboard."""
 
+import uuid
+
 import pytest
 import asyncpg
 from httpx import ASGITransport, AsyncClient
@@ -8,7 +10,9 @@ from app.api.deps import get_current_user, get_pool
 from app.api.main import app
 from config.config import settings
 
-_FAKE_USER = {"sub": "00000000-0000-0000-0000-000000000001", "email": "test@example.com", "type": "access"}
+from types import SimpleNamespace
+
+_FAKE_USER = SimpleNamespace(id=uuid.UUID("00000000-0000-0000-0000-000000000001"), email="test@example.com")
 
 
 @pytest.fixture

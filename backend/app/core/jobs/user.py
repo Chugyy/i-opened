@@ -2,7 +2,7 @@
 
 import asyncpg
 
-from app.database.crud.user import create, get_by_email
+from app.database.crud.user import count, create, get_by_email
 from app.core.utils.user import generate_tokens, hash_password
 
 
@@ -11,8 +11,8 @@ class ConflictError(Exception):
 
 
 async def setup_admin(pool: asyncpg.Pool, email: str, password: str, full_name: str) -> dict:
-    existing = await get_by_email(pool, email)
-    if existing:
+    # Mono-admin : le premier demarrage cree l'admin, ensuite /auth/setup est ferme.
+    if await count(pool) > 0:
         raise ConflictError("Admin already exists")
 
     password_hash = hash_password(password)

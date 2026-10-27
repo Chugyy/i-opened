@@ -39,3 +39,8 @@ async def update(pool: asyncpg.Pool, user_id: UUID, fields: dict) -> dict | None
     async with pool.acquire() as conn:
         row = await conn.fetchrow(query, user_id, *filtered.values())
         return dict(row) if row else None
+
+
+async def count(pool: asyncpg.Pool) -> int:
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users")
